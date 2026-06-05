@@ -230,7 +230,7 @@ export default function PuzzlePage() {
       </div>
 
       <div className="admin-link">
-        <Link href="/admin">🔒 Host Access (Admin Panel)</Link>
+        <Link href="/admin"></Link>
       </div>
     </>
   );
