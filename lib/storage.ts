@@ -3,8 +3,11 @@ import path from "path";
 import { DEFAULT_CONFIG } from "./default-config";
 import type { AppState, PuzzleConfig } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const isVercel = !!process.env.VERCEL;
+const DATA_DIR = isVercel ? "/tmp" : path.join(process.cwd(), "data");
 const STATE_FILE = path.join(DATA_DIR, "state.json");
+
+let memoryState: AppState | null = null;
 
 function defaultState(): AppState {
   return {
@@ -14,7 +17,11 @@ function defaultState(): AppState {
 }
 
 async function ensureDataFile(): Promise<AppState> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+  } catch (error) {
+    console.error("Failed to create data directory:", error);
+  }
 
   try {
     const raw = await fs.readFile(STATE_FILE, "utf-8");
@@ -38,10 +45,15 @@ async function ensureDataFile(): Promise<AppState> {
         parsed.unlocks = newUnlocks;
         await writeState(parsed);
       }
+      memoryState = parsed;
       return parsed;
     }
   } catch {
     // file missing or invalid — create default
+  }
+
+  if (memoryState) {
+    return memoryState;
   }
 
   const initial = defaultState();
@@ -50,8 +62,13 @@ async function ensureDataFile(): Promise<AppState> {
 }
 
 async function writeState(state: AppState): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
+  memoryState = state;
+  try {
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(STATE_FILE, JSON.stringify(state, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Failed to write state:", error);
+  }
 }
 
 export async function readAppState(): Promise<AppState> {
